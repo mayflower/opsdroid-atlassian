@@ -2,6 +2,7 @@
 from __future__ import unicode_literals
 import json
 import logging
+from urllib.parse import urlparse
 
 from errbot import BotPlugin, botcmd, webhook
 from errbot.templating import tenv
@@ -477,10 +478,12 @@ class Atlassian(BotPlugin):
     @staticmethod
     def msg_issue_generic(body, project, event_type=None):
         summary = body['issue']['fields']['summary']
+        url_parts = urlparse(body['issue']['self'])
+        base_url = '{}://{}'.format(url_parts.scheme, url_parts.hostname)
         if 'changelog' in body:
             changes = []
             for item in body['changelog']['items']:
-                url = 'https://jira.mayflower.de/browse/{}'.format(body['issue']['key'])
+                url = '{}/browse/{}'.format(base_url, body['issue']['key'])
                 field = item['field'][0].upper() + item['field'][1:]
                 changes.append('[jira][{} - {}] {} was changed from {} to {} by {} ({})'.format(
                     body['issue']['key'], summary, field, item['fromString'], item['toString'],
@@ -489,7 +492,8 @@ class Atlassian(BotPlugin):
             return '\n'.join(changes)
 
         if 'comment' in body:
-            url = 'https://jira.mayflower.de/browse/{key}?focusedCommentId={commentId}&page=com.atlassian.jira.plugin.system.issuetabpanels:comment-tabpanel#comment-{commentId}'.format(
+            url = '{base_url}/browse/{key}?focusedCommentId={commentId}&page=com.atlassian.jira.plugin.system.issuetabpanels:comment-tabpanel#comment-{commentId}'.format(
+                base_url=base_url,
                 key=body['issue']['key'],
                 commentId=body['comment']['id']
             )
@@ -503,8 +507,10 @@ class Atlassian(BotPlugin):
         return self.dispatch_event(body, project, body['issue_event_type_name'], self.msg_issue_generic)
 
     def msg_jira_issue_created(self, body, project):
+        url_parts = urlparse(body['issue']['self'])
+        base_url = '{}://{}'.format(url_parts.scheme, url_parts.hostname)
         key = body['issue']['key']
-        url = 'https://jira.mayflower.de/browse/{}'.format(key)
+        url = '{}/browse/{}'.format(base_url, key)
         user = body['user']['displayName']
         summary = body['issue']['fields']['summary']
         description = body['issue']['fields']['description']
@@ -522,9 +528,11 @@ class Atlassian(BotPlugin):
 
     @staticmethod
     def msg_issue_comment_deleted(body, project):
+        url_parts = urlparse(body['issue']['self'])
+        base_url = '{}://{}'.format(url_parts.scheme, url_parts.hostname)
         user = body['user']['displayName']
         key = body['issue']['key']
-        url = 'https://jira.mayflower.de/browse/{}'.format(key)
+        url = '{}/browse/{}'.format(base_url, key)
 
         return '[jira] {} deleted a comment on {} ({})'.format(user, key, url)
 

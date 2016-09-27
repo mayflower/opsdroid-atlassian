@@ -1,5 +1,5 @@
 ##########
-err-tlassian
+err-atlassian
 ##########
 
 err-atlassian is a webhook endpoint for Err_ as well as a set of commands to
