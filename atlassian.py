@@ -511,7 +511,7 @@ class Atlassian(BotPlugin):
             action = 'created' if event_type == 'issue_commented' else 'edited'
 
             return {
-                'summary': '[jira] {} {} a comment to {}'.format(action, user, key),
+                'summary': '[jira] {} {} a comment on {}'.format(user, action, key),
                 'title': '{} - {}'.format(key, summary),
                 'link': url,
                 'body': body['comment']['body']
