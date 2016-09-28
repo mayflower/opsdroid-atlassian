@@ -432,7 +432,13 @@ class Atlassian(BotPlugin):
             room.join(username=self._bot.bot_config.CHATROOM_FN)
         except errbot.backends.base.RoomError as e:
             self.log.info(e)
-        self.send(room, message)
+        if isinstance(message, dict):
+            self.send_card(
+                to=room,
+                **message
+            )
+        else:
+            self.send(room, message)
 
     def is_global_event(self, event_type, project, body):
         return event_type in ['user_deleted']
@@ -480,33 +486,42 @@ class Atlassian(BotPlugin):
         summary = body['issue']['fields']['summary']
         url_parts = urlparse(body['issue']['self'])
         base_url = '{}://{}'.format(url_parts.scheme, url_parts.hostname)
+        user = body['user']['displayName']
+        key = body['issue']['key']
         if 'changelog' in body:
+            url = '{}/browse/{}'.format(base_url, key)
             changes = []
             for item in body['changelog']['items']:
-                url = '{}/browse/{}'.format(base_url, body['issue']['key'])
                 field = item['field'][0].upper() + item['field'][1:]
-                changes.append('[jira][{} - {}] {} was changed from {} to {} by {} ({})'.format(
-                    body['issue']['key'], summary, field, item['fromString'], item['toString'],
-                    body['user']['displayName'], url
-                ))
-            return '\n'.join(changes)
+                changes.append((field, '{} → {}'.format(item['fromString'], item['toString'])))
+
+            return {
+                'summary': '[jira] {} edited issue {}'.format(user, key),
+                'title': '{} - {}'.format(key, summary),
+                'link': url,
+                'fields': changes
+            }
 
         if 'comment' in body:
             url = '{base_url}/browse/{key}?focusedCommentId={commentId}&page=com.atlassian.jira.plugin.system.issuetabpanels:comment-tabpanel#comment-{commentId}'.format(
                 base_url=base_url,
-                key=body['issue']['key'],
+                key=key,
                 commentId=body['comment']['id']
             )
             action = 'created' if event_type == 'issue_commented' else 'edited'
-            return '[jira][{} - {}] {} {} a comment:\n  {}\n  {}'.format(
-                body['issue']['key'], summary, body['user']['displayName'], action,
-                body['comment']['body'], url
-            )
+
+            return {
+                'summary': '[jira] {} {} a comment to {}'.format(action, user, key),
+                'title': '{} - {}'.format(key, summary),
+                'link': url,
+                'text': body['comment']['body']
+            }
 
     def msg_jira_issue_updated(self, body, project):
         return self.dispatch_event(body, project, body['issue_event_type_name'], self.msg_issue_generic)
 
-    def msg_jira_issue_created(self, body, project):
+    @staticmethod
+    def msg_jira_issue_created(body, project):
         url_parts = urlparse(body['issue']['self'])
         base_url = '{}://{}'.format(url_parts.scheme, url_parts.hostname)
         key = body['issue']['key']
@@ -514,9 +529,13 @@ class Atlassian(BotPlugin):
         user = body['user']['displayName']
         summary = body['issue']['fields']['summary']
         description = body['issue']['fields']['description']
-        return '[jira] {} created {} - {}:\n  {}\n  {}'.format(
-            user, key, summary, description, url
-        )
+
+        return {
+            'summary': '[jira] {} created issue {}'.format(user, key),
+            'title': '{} - {}'.format(key, summary),
+            'link': url,
+            'text': description
+        }
 
     @staticmethod
     def msg_jira_issue_deleted(body, project):
