@@ -514,7 +514,7 @@ class Atlassian(BotPlugin):
                 'summary': '[jira] {} {} a comment to {}'.format(action, user, key),
                 'title': '{} - {}'.format(key, summary),
                 'link': url,
-                'text': body['comment']['body']
+                'body': body['comment']['body']
             }
 
     def msg_jira_issue_updated(self, body, project):
@@ -534,7 +534,7 @@ class Atlassian(BotPlugin):
             'summary': '[jira] {} created issue {}'.format(user, key),
             'title': '{} - {}'.format(key, summary),
             'link': url,
-            'text': description
+            'body': description
         }
 
     @staticmethod
