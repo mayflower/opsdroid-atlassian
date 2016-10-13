@@ -427,10 +427,12 @@ class Atlassian(BotPlugin):
         return None
 
     def join_and_send(self, room_name, message):
-        room = self.query_room(room_name)
         try:
+            room = self.query_room(room_name)
             room.join(username=self._bot.bot_config.CHATROOM_FN)
         except errbot.backends.base.RoomError as e:
+            # default to simple behavior if rooms unsupported
+            room = self.build_identifier(room_name)
             self.log.info(e)
         if isinstance(message, dict):
             self.send_card(
