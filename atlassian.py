@@ -524,7 +524,7 @@ class Atlassian(BotPlugin):
             }
 
     def msg_jira_issue_updated(self, body, project):
-        return self.dispatch_event(body, project, body['issue_event_type_name'], self.msg_issue_generic)
+        return self.msg_issue_generic(body, project)
 
     @staticmethod
     def msg_jira_issue_created(body, project):
