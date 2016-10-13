@@ -435,10 +435,14 @@ class Atlassian(BotPlugin):
             room = self.build_identifier(room_name)
             self.log.info(e)
         if isinstance(message, dict):
-            self.send_card(
-                to=room,
-                **message
-            )
+            if not hasattr(self._bot, 'telegram'):
+                self.send_card(
+                    to=room,
+                    **message
+                )
+            else:
+                self.send_templated(identifier=room, template_name='simple_card',
+                                    template_parameters={'card': message})
         else:
             self.send(room, message)
 
