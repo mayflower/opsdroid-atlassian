@@ -1,0 +1,1 @@
+`[JIRA]` {{user}} {{action}} issue [{{issue}}]({{link}})
