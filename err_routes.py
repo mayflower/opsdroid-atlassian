@@ -313,7 +313,7 @@ class RouteMixin(object):
                 events = self.get_events(project, room_name)
                 if event_type in events or '*' in events:
                     self.join_and_send(room_name, message)
-            if global_event:
+            if global_event and self.get('global_route'):
                 self.join_and_send(self['global_route'], message)
         response.status = 204
         return None
