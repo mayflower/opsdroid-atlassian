@@ -271,7 +271,7 @@ class Atlassian(RouteMixin, BotPlugin):
 
     def msg_jira_issue_updated(self, body, project):
         if not self.concise_output:
-            return self.msg_issue_generic(body, project, 'issue_updated')
+            return self.msg_issue_generic(body, project, body['issue_event_type_name'])
 
         if 'changelog' in body:
             status_change = next((e.get('field') == 'status' for
