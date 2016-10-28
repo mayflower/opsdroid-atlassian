@@ -8,7 +8,6 @@ from errbot.templating import tenv
 import errbot.backends.base
 
 from err_routes import RouteMixin
-import config
 
 log = logging.getLogger(name='errbot.plugins.atlassian')
 
@@ -88,8 +87,6 @@ ATLASSIAN_EVENTS = [
     'user_removed',
 ]
 
-ATLASSIAN_CONCISE_MESSAGES = getattr(config, 'ATLASSIAN_CONCISE_MESSAGES', False)
-
 
 class Atlassian(RouteMixin, BotPlugin):
 
@@ -98,7 +95,10 @@ class Atlassian(RouteMixin, BotPlugin):
     DEFAULT_EVENTS = AVAILABLE_EVENTS = ATLASSIAN_EVENTS
     HELP_MSG = ('Please see the output of `!atlassian help` for usage '
                 'and configuration instructions.')
-    concise_output = ATLASSIAN_CONCISE_MESSAGES
+
+    def __init__(self, *args, **kwargs):
+        super(Atlassian, self).__init__(*args, **kwargs)
+        self.concise_output = self._bot.bot_config.get('ATLASSIAN_CONCISE_MESSAGES', False)
 
     def get_configuration_template(self):
         return self.HELP_MSG
