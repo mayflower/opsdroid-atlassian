@@ -499,7 +499,8 @@ class Atlassian(BotPlugin):
                 'summary': '[jira] {} edited issue {}'.format(user, key),
                 'title': '{} - {}'.format(key, summary),
                 'link': url,
-                'fields': changes
+                'fields': changes,
+                'body': body.get('comment', {}).get('body')
             }
 
         if 'comment' in body:
