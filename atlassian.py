@@ -500,7 +500,7 @@ class Atlassian(BotPlugin):
                 'title': '{} - {}'.format(key, summary),
                 'link': url,
                 'fields': changes,
-                'body': body.get('comment', {}).get('body')
+                'body': body.get('comment', {}).get('body', '')
             }
 
         if 'comment' in body:
