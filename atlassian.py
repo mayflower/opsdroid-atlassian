@@ -4,10 +4,15 @@ import json
 import logging
 from urllib.parse import urlparse
 
-from errbot import BotPlugin, botcmd, webhook
+from errbot import BotPlugin, botcmd, re_botcmd, webhook
 from errbot.templating import tenv
 import errbot.backends.base
 from bottle import abort, response
+
+from jira import JIRA
+
+import config
+from jira_oauth import JiraOauth
 
 log = logging.getLogger(name='errbot.plugins.atlassian')
 
@@ -377,6 +382,62 @@ class Atlassian(BotPlugin):
             yield 'Set global route to {}.'.format(room)
         else:
             yield HELP_MSG
+
+    @botcmd
+    def jira_auth(self, message, args):
+        if not message.is_direct:
+            return "This has to be used in a direct message."
+        oauth = JiraOauth()
+
+        link, state = oauth.request_token()
+        self['oauth_request_{}'.format(message.frm.person)] = state
+
+        return link
+
+    @re_botcmd(pattern=r'\b[A-Z]+-[0-9]+\b', prefixed=False, matchall=True)
+    def jira_issue(self, message, matches):
+        for match in matches:
+            issue = self.jira_client(message).issue(match.group())
+            issue_card = {
+              'summary': issue.fields.description,
+              'title': '{} - {}'.format(issue.key, issue.fields.summary),
+              'link': '{}/browse/{}'.format(config.JIRA_BASE_URL, issue.key),
+              'fields': list({
+                'Assignee': getattr(issue.fields.assignee, 'displayName', None),
+                'Due Date': issue.fields.duedate,
+                'Reporter': getattr(issue.fields.reporter, 'displayName', None),
+                'Created': issue.fields.created,
+                'Priority': issue.fields.priority.name,
+                'Status': issue.fields.status.name,
+                'Resolution': getattr(issue.fields.resolution, 'name', None),
+                'Epic Link': issue.fields.customfield_10680,
+              }.items()),
+            }
+            #yield str(issue.fields.components)
+            #yield str(issue.fields.issuelinks)
+            self.log.warn(json.dumps(issue_card))
+            self.log.warn(message.frm.room)
+            self.send_card(to=message.frm.room, **issue_card)
+
+    def jira_client(self, message):
+        frm = getattr(message.frm, 'real_jid', message.frm.person)
+        request_key = 'oauth_request_{}'.format(frm)
+        access_key = 'oauth_access_{}'.format(frm)
+        self.log.warn("FROM: %s", frm)
+        if self.get(request_key):
+            oauth = JiraOauth()
+            state = self[request_key]
+            self[access_key] = oauth.accepted(state)
+            del self[request_key]
+        token, secret = self[access_key]
+        oauth_config = {
+          'access_token': token,
+          'access_token_secret': secret,
+          'consumer_key': config.JIRA_OAUTH_KEY,
+          'key_cert': config.JIRA_OAUTH_PEM,
+        }
+
+        return JIRA(config.JIRA_BASE_URL, oauth=oauth_config)
 
     @webhook(r'/atlassian', methods=('POST',), raw=True)
     def receive(self, request):
