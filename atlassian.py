@@ -9,7 +9,7 @@ from errbot.templating import tenv
 import errbot.backends.base
 from bottle import abort, response
 
-from jira import JIRA
+from jira import JIRA, JIRAError
 
 import config
 from jira_oauth import JiraOauth
@@ -104,6 +104,9 @@ EVENT_UNKNOWN = 'Unknown event {0}, skipping.'
 
 README = 'https://github.com/mayflower/err-atlassian/blob/master/README.rst'
 
+
+class JiraNeedsAuthorization(Exception):
+    pass
 
 class Atlassian(BotPlugin):
 
@@ -383,43 +386,14 @@ class Atlassian(BotPlugin):
         else:
             yield HELP_MSG
 
-    @botcmd
-    def jira_auth(self, message, args):
-        if not message.is_direct:
-            return "This has to be used in a direct message."
+    def _handle_jira_auth(self, user):
         oauth = JiraOauth()
-
         link, state = oauth.request_token()
-        self['oauth_request_{}'.format(message.frm.person)] = state
+        self['oauth_request_{}'.format(user)] = state
 
         return link
 
-    @re_botcmd(pattern=r'\b[A-Z]+-[0-9]+\b', prefixed=False, matchall=True)
-    def jira_issue(self, message, matches):
-        for match in matches:
-            issue = self.jira_client(message).issue(match.group())
-            issue_card = {
-              'summary': issue.fields.description,
-              'title': '{} - {}'.format(issue.key, issue.fields.summary),
-              'link': '{}/browse/{}'.format(config.JIRA_BASE_URL, issue.key),
-              'fields': list({
-                'Assignee': getattr(issue.fields.assignee, 'displayName', None),
-                'Due Date': issue.fields.duedate,
-                'Reporter': getattr(issue.fields.reporter, 'displayName', None),
-                'Created': issue.fields.created,
-                'Priority': issue.fields.priority.name,
-                'Status': issue.fields.status.name,
-                'Resolution': getattr(issue.fields.resolution, 'name', None),
-                'Epic Link': issue.fields.customfield_10680,
-              }.items()),
-            }
-            #yield str(issue.fields.components)
-            #yield str(issue.fields.issuelinks)
-            self.log.warn(json.dumps(issue_card))
-            self.log.warn(message.frm.room)
-            self.send_card(to=message.frm.room, **issue_card)
-
-    def jira_client(self, message):
+    def _jira_client(self, message):
         frm = getattr(message.frm, 'real_jid', message.frm.person)
         request_key = 'oauth_request_{}'.format(frm)
         access_key = 'oauth_access_{}'.format(frm)
@@ -429,6 +403,11 @@ class Atlassian(BotPlugin):
             state = self[request_key]
             self[access_key] = oauth.accepted(state)
             del self[request_key]
+        if not self.get(access_key):
+            link = self._handle_jira_auth(frm)
+            text = 'To use the errbot JIRA integration please give permission at: {}'.format(link)
+            self.send(self.build_identifier(frm), text)
+            raise JiraNeedsAuthorization()
         token, secret = self[access_key]
         oauth_config = {
           'access_token': token,
@@ -438,6 +417,57 @@ class Atlassian(BotPlugin):
         }
 
         return JIRA(config.JIRA_BASE_URL, oauth=oauth_config)
+
+    @botcmd
+    def jira_auth(self, message, args):
+        '''Sends you the link to grant an OAuth token in JIRA'''
+        if not message.is_direct:
+            return "This has to be used in a direct message."
+        return self._handle_jira_auth(message.frm.person)
+
+    @botcmd
+    def jira_forget(self, message, args):
+        '''Deletes your JIRA OAuth token'''
+        if not message.is_direct:
+            return "This has to be used in a direct message."
+        if self.get('oauth_access_{}'.format(message.frm.person)):
+            del self['oauth_access_{}'.format(message.frm.person)]
+        if self.get('oauth_request_{}'.format(message.frm.person)):
+            del self['oauth_request_{}'.format(message.frm.person)]
+        return 'Your OAuth token has been deleted.'
+
+    @re_botcmd(pattern=r'\b[A-Z]+-[0-9]+\b', prefixed=False, matchall=True)
+    def jira_issue(self, message, matches):
+        '''Prints JIRA issue information if it recognizes an issue key'''
+        try:
+            client = self._jira_client(message)
+            for match in matches:
+                try:
+                    issue = client.issue(match.group())
+                    issue_card = {
+                      'to': getattr(message.frm, 'room', message.frm),
+                      'summary': issue.fields.description,
+                      'title': '{} - {}'.format(issue.key, issue.fields.summary),
+                      'link': '{}/browse/{}'.format(config.JIRA_BASE_URL, issue.key),
+                      'fields': [(k, v) for k, v in {
+                        'Assignee': getattr(issue.fields.assignee, 'displayName', None),
+                        'Due Date': issue.fields.duedate,
+                        'Reporter': getattr(issue.fields.reporter, 'displayName', None),
+                        'Created': issue.fields.created,
+                        'Priority': issue.fields.priority.name,
+                        'Status': issue.fields.status.name,
+                        'Resolution': getattr(issue.fields.resolution, 'name', None),
+                        'Epic Link': issue.fields.customfield_10680,
+                      }.items() if v],
+                    }
+                    #yield str(issue.fields.components)
+                    #yield str(issue.fields.issuelinks)
+                    self.send_card(**issue_card)
+                except JIRAError as err:
+                    if err.status_code == 404:
+                        yield 'No Issue {} found'.format(match.group())
+        except JiraNeedsAuthorization:
+            pass
 
     @webhook(r'/atlassian', methods=('POST',), raw=True)
     def receive(self, request):
