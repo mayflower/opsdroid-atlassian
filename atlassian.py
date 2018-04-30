@@ -444,6 +444,10 @@ class Atlassian(BotPlugin):
             for match in matches:
                 try:
                     issue = client.issue(match.group())
+                    epic_link_name = None
+                    if issue.fields.customfield_10680:
+                        epic_link = client.issue(issue.fields.customfield_10680)  # FIXME
+                        epic_link_name = epic_link.fields.customfield_10681
                     issue_card = {
                       'to': getattr(message.frm, 'room', message.frm),
                       'summary': issue.fields.description,
@@ -457,7 +461,7 @@ class Atlassian(BotPlugin):
                         'Priority': issue.fields.priority.name,
                         'Status': issue.fields.status.name,
                         'Resolution': getattr(issue.fields.resolution, 'name', None),
-                        'Epic Link': issue.fields.customfield_10680,
+                        'Epic Link': epic_link_name,
                       }.items() if v],
                     }
                     #yield str(issue.fields.components)
