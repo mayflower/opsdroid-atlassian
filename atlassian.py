@@ -5,6 +5,7 @@ import logging
 from urllib.parse import urlparse
 
 from errbot import BotPlugin, botcmd, re_botcmd, webhook
+from errbot.backends.slack import SlackBot
 from errbot.templating import tenv
 import errbot.backends.base
 from bottle import abort, response
@@ -445,6 +446,8 @@ class Atlassian(BotPlugin):
     @re_botcmd(pattern=r'\b[A-Z]+-[0-9]+\b', prefixed=False, matchall=True)
     def jira_issue(self, message, matches):
         '''Prints JIRA issue information if it recognizes an issue key'''
+        if type(message.frm).__name__  == 'SlackRoomBot':
+            return
         try:
             client = self._jira_client(message)
             for match in matches:
