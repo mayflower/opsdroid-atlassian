@@ -393,6 +393,12 @@ class Atlassian(BotPlugin):
 
         return link
 
+    def _jira_req_auth(self, frm):
+            link = self._handle_jira_auth(frm)
+            text = 'To use the errbot JIRA integration please give permission at: {}'.format(link)
+            self.send(self.build_identifier(frm), text)
+            raise JiraNeedsAuthorization()
+
     def _jira_client(self, message):
         frm = getattr(message.frm, 'real_jid', message.frm.person)
         request_key = 'oauth_request_{}'.format(frm)
@@ -401,13 +407,13 @@ class Atlassian(BotPlugin):
         if self.get(request_key):
             oauth = JiraOauth()
             state = self[request_key]
-            self[access_key] = oauth.accepted(state)
+            try:
+                self[access_key] = oauth.accepted(state)
+            except KeyError:
+                self._jira_req_auth(frm)
             del self[request_key]
         if not self.get(access_key):
-            link = self._handle_jira_auth(frm)
-            text = 'To use the errbot JIRA integration please give permission at: {}'.format(link)
-            self.send(self.build_identifier(frm), text)
-            raise JiraNeedsAuthorization()
+            self._jira_req_auth(frm)
         token, secret = self[access_key]
         oauth_config = {
           'access_token': token,
