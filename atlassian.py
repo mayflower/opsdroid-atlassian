@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-from __future__ import unicode_literals
+
 import json
 import logging
 from urllib.parse import urlparse
@@ -175,7 +175,7 @@ class Atlassian(BotPlugin):
 
     def get_projects(self):
         """Return a list of all projects we have configured."""
-        return self.config['projects'].keys()
+        return list(self.config['projects'].keys())
 
     def get_route(self, project, room):
         """Return the configuration of this route."""
@@ -187,9 +187,8 @@ class Atlassian(BotPlugin):
         """Fetch the routes for a project.
         Always check if the project exists before calling this.
         """
-        return self.config['projects'].get(project, {}) \
-                                          .get('routes', {}) \
-                                          .keys()
+        return list(self.config['projects'].get(project, {}) \
+                                          .get('routes', {}).keys())
 
     def set_defaults(self, defaults):
         """Set which events are relayed by default."""
@@ -462,7 +461,7 @@ class Atlassian(BotPlugin):
                       'summary': issue.fields.description,
                       'title': '{} - {}'.format(issue.key, issue.fields.summary),
                       'link': '{}/browse/{}'.format(config.JIRA_BASE_URL, issue.key),
-                      'fields': [(k, v) for k, v in {
+                      'fields': [(k, v) for k, v in list({
                         'Assignee': getattr(issue.fields.assignee, 'displayName', None),
                         'Due Date': issue.fields.duedate,
                         'Reporter': getattr(issue.fields.reporter, 'displayName', None),
@@ -471,7 +470,7 @@ class Atlassian(BotPlugin):
                         'Status': issue.fields.status.name,
                         'Resolution': getattr(issue.fields.resolution, 'name', None),
                         'Epic Link': epic_link_name,
-                      }.items() if v],
+                      }.items()) if v],
                     }
                     #yield str(issue.fields.components)
                     #yield str(issue.fields.issuelinks)
