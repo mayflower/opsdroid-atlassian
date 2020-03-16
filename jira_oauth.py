@@ -1,4 +1,4 @@
-import config
+#import config
 import base64
 from urllib.parse import parse_qsl
 from tlslite.utils import keyfactory

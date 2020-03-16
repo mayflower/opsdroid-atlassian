@@ -4,16 +4,18 @@ import json
 import logging
 from urllib.parse import urlparse
 
-from errbot import BotPlugin, botcmd, re_botcmd, webhook
-from errbot.backends.slack import SlackBot
-from errbot.templating import tenv
-import errbot.backends.base
-from bottle import abort, response
+from opsdroid.skill import Skill
+from opsdroid.matchers import match_regex
+
+#from errbot import BotPlugin, botcmd, re_botcmd, webhook
+#from errbot.backends.slack import SlackBot
+#from errbot.templating import tenv
+#import errbot.backends.base
+#from bottle import abort, response
 
 from jira import JIRA, JIRAError
-
-import config
-from jira_oauth import JiraOauth
+#import config
+from .jira_oauth import JiraOauth
 
 log = logging.getLogger(name='errbot.plugins.atlassian')
 
@@ -125,6 +127,10 @@ class Atlassian(BotPlugin):
         else:
             config = DEFAULT_CONFIG
         super(Atlassian, self).configure(config)
+    def __init__(self, opsdroid, config):
+        _config = dict(DEFAULT_CONFIG)
+        _config.update(config)
+        super().__init__(opsdroid, _config)
 
     #################################################################
     # Convenience methods to get, check or set configuration options.
