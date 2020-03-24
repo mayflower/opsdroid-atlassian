@@ -2,10 +2,14 @@
 
 import json
 import logging
+import re
 from urllib.parse import urlparse
+from functools import wraps
 
 from opsdroid.skill import Skill
 from opsdroid.matchers import match_regex
+
+from markdown import markdown
 
 #from errbot import BotPlugin, botcmd, re_botcmd, webhook
 #from errbot.backends.slack import SlackBot
@@ -107,11 +111,46 @@ EVENT_UNKNOWN = 'Unknown event {0}, skipping.'
 
 README = 'https://github.com/mayflower/err-atlassian/blob/master/README.rst'
 
+def botcmd(*args, **kwargs):
+    def wrap(fn):
+        command = '!' + fn.__name__.replace('_', r'\s+')
+        return re_botcmd(command, *args, **kwargs)(fn)
+    return wrap
+
+def re_botcmd(pattern, prefixed=True, matchall=False, admin_only=False, split_args_with=None):
+    if split_args_with == None:
+        split_args_with = '\s'
+    def wrap(fn):
+        wrapped = fn
+        if not hasattr(fn, '_opsdroid_adapted'):
+            @wraps(fn)
+            async def wrapped(self, opsdroid, config, message, *args, **kwargs):
+                if not message.user_id.endswith(':matrix.mayflower.de'):
+                    return
+                if admin_only and message.user_id not in self.config.get('admin_ids', ['linus.heckemann:matrix.mayflower.de']):
+                    await message.respond("You're not allowed to do that!")
+                    return
+                args = re.split(split_args_with, re.sub(pattern, '', message.text, count=1))
+                reply = fn(self, message, args)
+                reply = markdown(reply, extensions=['nl2br'])
+                if reply:
+                    await message.respond(reply)
+            wrapped._opsdroid_adapted = True
+        wrapped = match_regex(pattern)(wrapped)
+        return wrapped
+
+    return wrap
+
+def webhook(*args, **kwargs):
+    def wrap(fn):
+        return fn
+    return wrap
+
 
 class JiraNeedsAuthorization(Exception):
     pass
 
-class Atlassian(BotPlugin):
+class Atlassian(Skill):
 
     min_err_version = '2.1.0'
 
@@ -241,12 +280,8 @@ class Atlassian(BotPlugin):
     # Commands for the user to get, set or clear configuration.
     ###########################################################
 
-    @botcmd
-    def atlassian(self, *args):
-        """Atlassian root command, return usage information."""
-        return self.atlassian_help()
-
-    @botcmd
+    @re_botcmd('!atlassian')
+    @botcmd()
     def atlassian_help(self, *args):
         """Output help."""
         message = []
