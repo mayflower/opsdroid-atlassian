@@ -1,9 +1,0 @@
-[Core]
-Name = Atlassian
-Module = atlassian
-
-[Documentation]
-Description = Handle events sent from Jira and Confluence to our webhooks endpoint.
-
-[Python]
-Version = 2+
