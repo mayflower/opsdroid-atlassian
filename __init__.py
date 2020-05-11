@@ -158,7 +158,7 @@ class Atlassian(Skill):
     )
     async def atlassian_defaults(self, message):
         """Get or set what events are relayed by default for new routes."""
-        events = message.entities.get("events", {}).get("value").split(",")
+        events = message.entities.get("events", {}).get("value", "").split(",")
 
         if events:
             for event in events:
