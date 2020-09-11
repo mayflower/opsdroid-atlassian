@@ -464,18 +464,18 @@ class Atlassian(Skill):
         if "changelog" in body:
             url = "{}/browse/{}".format(base_url, key)
             changes = []
+            comment = body.get("comment", {}).get("body","")
             for item in body["changelog"]["items"]:
                 field = item["field"][0].upper() + item["field"][1:]
                 from_, to = item["fromString"], item["toString"]
                 changes.append(f"{field}: {from_} → {to}")
 
-            return f"[JIRA] {user} edited issue {key} {summary}\n" f"{url}\n" + "\n".join(
+            return f"""[JIRA] {user} edited issue <a href="{url}">{key}</a>
+                       <br>
+                       <b>{summary}</b>
+                       <br>""" + "<br>".join(
                 changes
-            ) + body.get(
-                "comment", {}
-            ).get(
-                "body", ""
-            )
+            ) + (f"<pre>{comment}</pre>" if comment != "" else "")
 
         if "comment" in body:
             commentId = body["comment"]["id"]
@@ -483,8 +483,10 @@ class Atlassian(Skill):
             action = "created" if event_type == "issue_commented" else "edited"
 
             return (
-                f"[JIRA] {user} {action} a comment on {key} {summary}\n"
-                f"{url}\n" + body["comment"]["body"]
+                f"""[JIRA] {user} {action} a comment on <a href="{url}">{key}</a>
+                    <br>
+                    <b>{summary}</b>
+                    <br>""" "<pre>" + body["comment"]["body"] + "</pre>"
             )
 
     def msg_jira_issue_updated(self, body, project):
@@ -502,7 +504,10 @@ class Atlassian(Skill):
         summary = body["issue"]["fields"]["summary"]
         description = body["issue"]["fields"]["description"]
 
-        return f"[JIRA] {user} created issue {key} {summary}\n" f"{url}\n" + description
+        return f"""[JIRA] {user} created issue <a href="{url}">{key}</a>
+                   <br>
+                   <b>{summary}<b>
+                   <pre>{description}</pre>"""
 
     @staticmethod
     def msg_jira_issue_deleted(body, project):
@@ -510,7 +515,9 @@ class Atlassian(Skill):
         key = body["issue"]["key"]
         summary = body["issue"]["fields"]["summary"]
 
-        return f"[JIRA] {user} deleted an issue {key} {summary}"
+        return f"""[JIRA] {user} deleted an issue {key}
+                   <br>
+                   <b>{summary}<b>"""
 
     @staticmethod
     def msg_issue_comment_deleted(body, project):
@@ -520,7 +527,7 @@ class Atlassian(Skill):
         key = body["issue"]["key"]
         url = "{}/browse/{}".format(base_url, key)
 
-        return f"[JIRA] {user} deleted a comment on {key} ({url})"
+        return f'[JIRA] {user} deleted a comment on <a href="{url}">{key}</a>'
 
     @staticmethod
     def msg_user_deleted(body, project):
