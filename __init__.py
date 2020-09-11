@@ -515,7 +515,7 @@ class Atlassian(Skill):
         key = body["issue"]["key"]
         summary = body["issue"]["fields"]["summary"]
 
-        return f"""[JIRA] {user} deleted an issue {key}
+        return f"""[JIRA] {user} deleted issue {key}
                    <br>
                    <b>{summary}<b>"""
 
